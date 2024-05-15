@@ -1,115 +1,82 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits.h> // INT_MAX
-#define MAX_VERTICES 100
-#define INF INT_MAX
+#include <limits.h>
 
-int parent[MAX_VERTICES];        // 부모노드
-void set_init(int n) // 초기화
-{
-	for (int i = 0; i < n; i++)
-		parent[i] = -1;
-}
-// curr가속하는집합을반환한다.
-int set_find(int curr)
-{
-	if (parent[curr] == -1)
-		return curr;             // 루트
-	while (parent[curr] != -1)
-		curr = parent[curr];
-	return curr;
-}
+#define MAX_VERTICES    100    
+#define INF    INT_MAX    /* 무한대(연결이없는경우) */
 
-void set_union(int a, int b)
-{
-	int root1 = set_find(a); // 노드a의루트찾기
-	int root2 = set_find(b); // 노드b의루트찾기
-	if (root1 != root2)     // 합한다. 
-		parent[root2] = root1;
-}
+typedef struct GraphType{
+int n;    // 정점의개수
+unsigned weight[MAX_VERTICES][MAX_VERTICES];
+}GraphType;
 
-typedef struct {            // 간선을나타내는구조체
-	int start, end, weight;
-} Edge;
-typedef struct {
-	int v;    // 정점개수
-	int n;    // 간선개수
-	Edge edges[2 * MAX_VERTICES];
-} GraphType;
+/* 시작정점으로부터의최단경로거리*/
+unsigned distance[MAX_VERTICES];
+int found[MAX_VERTICES];        /* 방문한정점표시*/
 
-// 그래프초기화
-void graph_init(GraphType* g)
+int choose(unsigned distance[], int n, int found[])
 {
-	g->n = 0;
-	g->v = 0;
-	for (int i = 0; i < 2 * MAX_VERTICES; i++) {
-		g->edges[i].start = 0;
-		g->edges[i].end = 0;
-		g->edges[i].weight = INF;
-	}
-}
-void insert_vertex(GraphType* g, int v)
-{
-	g->v++;
-}
-
-// 간선삽입연산
-void insert_edge(GraphType* g, int start, int end, int w)
-{
-	g->edges[g->n].start = start;
-	g->edges[g->n].end = end;
-	g->edges[g->n].weight = w;
-	g->n++;
-}
-// qsort()에사용되는함수
-int compare(const void* a, const void* b)
-{
-	Edge* x = (struct Edge*)a;
-	Edge* y = (struct Edge*)b;
-	return (x->weight - y->weight);
-}
-
-void kruskal(GraphType* g)
-{
-	int edge_accepted = 0; // 현재까지선택된간선수
-	int uset, vset; // 정점u와정점v의집합번호
-	Edge e;
-	set_init(g->n); // 집합초기화
-	qsort(g->edges, g->n, sizeof(Edge), compare);
-	printf("Kruskal'sMST algorithm\n");
-	int i = 0;
-	while (edge_accepted < (g->v - 1)) {
-		e = g->edges[i];
-		uset = set_find(e.start);
-		vset = set_find(e.end);
-		if (uset != vset) { // 서로속한집합이다르면
-			printf("간선(%d,%d) %d 선택\n", e.start,
-				e.end, e.weight);
-			edge_accepted++;
-			set_union(uset, vset);
+	int i, min, minpos;
+	min = INT_MAX;
+	minpos = -1;
+	for (i = 0; i < n; i++)
+		if (distance[i] < min && !found[i]) {
+			min = distance[i];
+			minpos = i;
 		}
-		i++;
+	return minpos;
+}
+
+void print_status(GraphType* g)
+{
+	static int step = 1;
+	printf("STEP %d: \n", step++);
+	printf("distance: ");
+	for (int i = 0; i < g->n; i++) {
+		if (distance[i] == INF)
+			printf(" * ");
+		else
+			printf("%2d ", distance[i]);
+	}
+	printf("\n");
+	printf(" found: ");
+	for (int i = 0; i < g->n; i++) {
+		printf("%2d ", found[i]);
+	}
+	printf("\n\n");
+}
+
+void shortest_path(GraphType* g, int start)
+{
+	int i, u, w;
+	for (i = 0; i < g->n; i++) { /* 초기화*/
+		distance[i] = g->weight[start][i];
+		found[i] = 0;
+	}
+	found[start] = 1;    /* 시작정점방문표시*/
+	distance[start] = 0;
+	for (i = 0; i < g->n - 1; i++) {
+		print_status(g);
+		u = choose(distance, g->n, found);
+		found[u] = 1;
+		for (w = 0; w < g->n; w++)
+			if (!found[w])
+				if (distance[u] + g->weight[u][w] < distance[w])
+					distance[w] = distance[u] + g->weight[u][w];
 	}
 }
 
-intmain(void)
+int main(void)
 {
-	GraphType* g;
-	g = (GraphType*)malloc(sizeof(GraphType));
-	graph_init(g);
-	for (int i = 0; i < 7; i++) {
-		insert_vertex(g, i);
-	}
-	insert_edge(g, 0, 1, 29);
-	insert_edge(g, 1, 2, 16);
-	insert_edge(g, 2, 3, 12);
-	insert_edge(g, 3, 4, 22);
-	insert_edge(g, 4, 5, 27);
-	insert_edge(g, 5, 0, 10);
-	insert_edge(g, 6, 1, 15);
-	insert_edge(g, 6, 3, 18);
-	insert_edge(g, 6, 4, 25);
-	kruskal(g);
-	free(g);
+	GraphType g = { 7,
+	{{ 0,  7,  INF, INF,   3,  10, INF },
+	{ 7,  0,    4,  10,   2,   6, INF },
+	{ INF,  4,    0,   2, INF, INF, INF },
+	{ INF, 10,    2,   0,  11,   9,   4 },
+	{ 3,  2,  INF,  11,   0, INF,   5 },
+	{ 10,  6,  INF,   9, INF,   0, INF },
+	{ INF, INF, INF,   4,   5, INF,   0 } }
+	};
+	shortest_path(&g, 0);
 	return 0;
 }
